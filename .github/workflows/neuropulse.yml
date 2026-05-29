@@ -41,7 +41,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python ai_news_engine.py
         env:
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python trend_amplifier.py
         env:
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python tools_database.py collect
         env:
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python discovery_engine.py
         env:
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python tools_database.py weekly
         env:
@@ -141,7 +141,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python monitor.py
         env:
@@ -158,7 +158,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python feedback_loop.py
         env:
@@ -174,7 +174,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python cross_platform_analytics.py
         env:
@@ -191,7 +191,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python timing_optimizer.py
         env:
@@ -206,7 +206,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python hashtag_optimizer.py
         env:
