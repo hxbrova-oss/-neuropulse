@@ -1,0 +1,6 @@
+.env
+*.txt
+tiktok_cookies.txt
+__pycache__/
+*.pyc
+.DS_Store
