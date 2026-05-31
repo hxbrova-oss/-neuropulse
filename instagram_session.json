@@ -1,0 +1,55 @@
+{
+    "uuids": {
+        "phone_id": "609fd085-f105-4519-bc5d-ad1ab1ff8793",
+        "uuid": "192c2580-d11c-48ce-a45b-063a47ea7a80",
+        "client_session_id": "ed9646cb-0861-4320-b11e-f934a232cc17",
+        "advertising_id": "03bae1f2-2c75-41cb-932d-219b7770b169",
+        "android_device_id": "android-1a1934ca41dc28d0",
+        "request_id": "a919acd9-e2c9-4a34-8a9c-a2dbb21202bc",
+        "tray_session_id": "d28975e6-84fb-4b13-8a55-22ba906643be"
+    },
+    "mid": "ahopvAABAAFZHHlnry36SIM7ncpr",
+    "ig_u_rur": null,
+    "ig_www_claim": null,
+    "authorization_data": {
+        "ds_user_id": "80594145422",
+        "sessionid": "80594145422%3AcUAS2izcXfmPVF%3A0%3AAYj_sAQYH_GEAj5l93RaRyBZxb9H699eyaLQRQXJkg"
+    },
+    "cookies": {},
+    "last_login": 1780099531.8963416,
+    "device_settings": {
+        "android_version": 34,
+        "android_release": "14",
+        "dpi": "480dpi",
+        "resolution": "1344x2992",
+        "manufacturer": "Google/google",
+        "device": "husky",
+        "model": "Pixel 8 Pro",
+        "cpu": "husky",
+        "app_version": "428.0.0.47.67",
+        "version_code": "961145276",
+        "bloks_versioning_id": "7189b949425f9bf80ea8bd880cf5a3080b292d9b1c4b38a18d112f7c4b71e7a8"
+    },
+    "user_agent": "Instagram 428.0.0.47.67 Android (34/14; 480dpi; 1344x2992; Google/google; Pixel 8 Pro; husky; husky; en_US; 961145276)",
+    "country": "US",
+    "country_code": 1,
+    "locale": "en_US",
+    "timezone_offset": -14400,
+    "timezone_name": "GMT-04:00",
+    "push_disabled": true,
+    "request_timeout": 1,
+    "public_request_retries_count": 3,
+    "public_request_retries_timeout": 2,
+    "session_retry_total": 3,
+    "session_retry_backoff_factor": 2,
+    "session_retry_statuses": [
+        429,
+        500,
+        502,
+        503,
+        504
+    ],
+    "public_transport": "requests",
+    "public_transport_impersonate": "chrome136",
+    "tls_verify": true
+}

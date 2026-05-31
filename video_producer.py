@@ -351,18 +351,28 @@ def produce_video(topic):
         trans_out = shot.get('transition_out', 'fade')
         opacity = opacities.get(trans_out, 0.6)
 
+        loaded_bg = None
         if bg and os.path.getsize(bg) > 10000:
             try:
-                bg_clip = VideoFileClip(bg).subclipped(0, min(s_dur, 60)).resized((1080, 1920))
+                from moviepy import concatenate_videoclips as _cat
+                bg_clip = VideoFileClip(bg)
+                bg_dur = bg_clip.duration
+                if bg_dur < s_dur:
+                    repeats = int(s_dur / bg_dur) + 1
+                    bg_clip = _cat([bg_clip] * repeats).subclipped(0, s_dur)
+                else:
+                    bg_clip = bg_clip.subclipped(0, s_dur)
+                bg_clip = bg_clip.resized((1080, 1920))
                 overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0), duration=s_dur).with_opacity(opacity)
-                shot_clip = CompositeVideoClip([bg_clip, overlay]).with_start(current_time)
+                loaded_bg = CompositeVideoClip([bg_clip, overlay]).with_start(current_time)
+                bg_clip.close()
             except Exception as e:
                 print(f'  BG error shot {i}: {e}')
-                shot_clip = ColorClip(size=(1080, 1920), color=(10, 15, 30), duration=s_dur).with_start(current_time)
-        else:
-            shot_clip = ColorClip(size=(1080, 1920), color=(10, 15, 30), duration=s_dur).with_start(current_time)
+                loaded_bg = None
+        if loaded_bg is None:
+            loaded_bg = ColorClip(size=(1080, 1920), color=(10, 15, 30), duration=s_dur).with_start(current_time)
 
-        clip_layers.append(shot_clip)
+        clip_layers.append(loaded_bg)
 
         overlay_text = shot.get('text_overlay', '')
         if overlay_text:
@@ -385,33 +395,42 @@ def produce_video(topic):
     clip_layers.append(progress_clip)
     clip_layers.append(brand_clip)
 
-    final = CompositeVideoClip(clip_layers, size=(1080, 1920))
+    final = CompositeVideoClip(clip_layers, size=(1080, 1920)).with_audio(audio)
 
     if music_path:
         try:
-            music = AudioFileClip(music_path).with_duration(actual_dur)
-            music = music.with_effects([lambda t, v: v * max(0, 1 - t/actual_dur * 0.5)])
+            from moviepy import AudioFileClip as _AFC, CompositeAudioClip as _CAC
+            music = _AFC(music_path).with_duration(actual_dur)
             music = music.with_volume_scaled(0.08)
-            final = final.with_audio(CompositeVideoClip([final.with_audio(audio), ColorClip(size=(1,1), color=(0,0,0), duration=1).with_audio(music)]).audio)
+            final = final.with_audio(_CAC([audio, music]))
         except Exception as e:
             print(f'  Music mix error: {e}')
-            final = final.with_audio(audio)
-    else:
-        final = final.with_audio(audio)
 
     print(f'  Rendering {actual_dur:.1f}s video...')
-    final.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac', threads=4, logger=None)
+    final.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac', preset='ultrafast', logger='bar')
     audio.close()
 
-    for p in bg_paths:
-        if p: os.remove(p)
+    bg_paths_clean = [p for p in bg_paths if p and os.path.exists(p)]
+    for p in bg_paths_clean:
+        for _ in range(3):
+            try:
+                os.remove(p)
+                break
+            except:
+                time.sleep(0.5)
     for p in clip_layers:
-        if isinstance(p, ImageClip) and p.filename:
-            try: os.remove(p.filename)
+        fn = getattr(p, 'filename', None)
+        if fn and os.path.exists(fn):
+            try: os.remove(fn)
             except: pass
+    if os.path.exists(brand_img):
+        try: os.remove(brand_img)
+        except: pass
 
-    print(f'  Video produced: {os.path.getsize(output_path)} bytes')
-    return output_path
+    if os.path.exists(output_path):
+        print(f'  Video produced: {os.path.getsize(output_path)} bytes')
+        return output_path
+    return None
 
 
 def get_unpublished_videos():
@@ -457,13 +476,11 @@ def main():
     for post in posts:
         video_path = produce_video(post)
         if video_path:
-            video_url = upload_to_supabase(video_path)
-            if video_url:
-                mark_video_ready(post['id'], video_url)
-                print(f'  Video ready and linked to post {post["id"]}')
-                shutil.copy2(video_path, os.path.join(_TMP, 'neuropulse_video.mp4'))
-            else:
-                print('  Failed to upload video')
+            dest = os.path.join(os.path.expanduser('~/Desktop'), f'neuropulse_preview_{post["id"]}.mp4')
+            shutil.copy2(video_path, dest)
+            shutil.copy2(video_path, os.path.join(_TMP, 'neuropulse_video.mp4'))
+            print(f'*** PREVIEW SAVED: {dest} ({os.path.getsize(video_path)/1024/1024:.1f} MB) ***')
+            print(f'*** Post ID {post["id"]}: "{post["title"][:50]}" ready for review ***')
         else:
             print(f'  Video production failed for post {post["id"]}')
         clean_old_audio()
