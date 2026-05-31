@@ -6,6 +6,7 @@ import re
 import time
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
+from duplicate_checker import is_semantic_duplicate
 
 load_dotenv(r'C:\Users\abdal\Desktop\100 free\autonomous_profit_system\.env')
 
@@ -149,6 +150,12 @@ def main():
     saved = 0
     for topic in topics:
         time.sleep(2)
+        dup, similar = is_semantic_duplicate(topic['title'])
+        if dup:
+            print(f'Duplicate skipped: {topic["title"][:60]}')
+            if similar:
+                print(f'  Similar to: {similar[:60]}')
+            continue
         score_data = score_topic(topic)
         if score_data:
             if save_topic(topic, score_data):

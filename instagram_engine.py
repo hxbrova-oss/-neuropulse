@@ -11,6 +11,7 @@ SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 IG_SESSIONID = os.getenv('IG_SESSIONID')
 IG_USERNAME = os.getenv('IG_USERNAME')
+IG_PASSWORD = os.getenv('IG_PASSWORD')
 
 HDR = {
     'apikey': SUPABASE_KEY,
@@ -24,21 +25,46 @@ CET = timezone(timedelta(hours=1))
 def login_instagram():
     try:
         from instagrapi import Client
+        from urllib.parse import unquote
+        import os as _os
         cl = Client()
-
-        if IG_SESSIONID:
-            cl.set_settings({'cookies': {'sessionid': IG_SESSIONID}})
-            cl.get_timeline_feed()
-        elif IG_USERNAME and IG_PASSWORD:
-            cl.login(IG_USERNAME, IG_PASSWORD)
-        else:
-            print('No Instagram credentials found.')
-            return None
-
         cl.delay_range = [3, 6]
-        user_id = cl.user_id_from_username(IG_USERNAME)
-        print(f'Logged in as {IG_USERNAME} (id={user_id})')
-        return cl
+        session_path = _os.path.join(_os.path.dirname(__file__), 'instagram_session.json')
+        if _os.path.exists(session_path):
+            try:
+                cl.load_settings(session_path)
+                cl.get_timeline_feed()
+                print('  Session file loaded')
+                return cl
+            except Exception as e:
+                print(f'  Session file invalid: {e}')
+                _os.remove(session_path)
+        if IG_USERNAME and IG_PASSWORD:
+            try:
+                cl.login(IG_USERNAME, IG_PASSWORD)
+                print('  Logged in via username/password')
+                cl.dump_settings(session_path)
+                return cl
+            except Exception as e:
+                msg = str(e).lower()
+                print(f'  Login error: {e}')
+                if 'challenge' in msg or 'checkpoint' in msg or 'two_factor' in msg or 'verify' in msg:
+                    print('  Challenge/2FA required — please run login_setup.py manually')
+                return None
+        if IG_SESSIONID:
+            sid = unquote(IG_SESSIONID) if '%' in IG_SESSIONID else IG_SESSIONID
+            try:
+                cl.login_by_sessionid(sid)
+                print('  Logged in via sessionid')
+                cl.dump_settings(session_path)
+                return cl
+            except Exception as e:
+                print(f'  sessionid login failed: {e}')
+        print('No Instagram credentials found.')
+        return None
+    except Exception as e:
+        print(f'Login error: {e}')
+        return None
     except Exception as e:
         print(f'Login error: {e}')
         return None
@@ -140,7 +166,7 @@ def publish_reel_instagrapi(video_path, caption):
 def get_unpublished_posts():
     try:
         res = requests.get(
-            f'{SUPABASE_URL}/rest/v1/content_queue?status=eq.published&ig_published=eq.false&limit=1',
+            f'{SUPABASE_URL}/rest/v1/content_queue?status=eq.published&ig_published=eq.false&limit=1&or=(video_url.neq.)',
             headers=HDR, timeout=15
         )
         res.raise_for_status()
@@ -148,6 +174,20 @@ def get_unpublished_posts():
     except Exception as e:
         print(f'Error fetching posts: {e}')
         return []
+
+
+def download_video(video_url, local_path):
+    try:
+        r = requests.get(video_url, stream=True, timeout=30)
+        with open(local_path, 'wb') as f:
+            for chunk in r.iter_content(8192):
+                if chunk:
+                    f.write(chunk)
+        print(f'  Downloaded: {os.path.getsize(local_path)} bytes')
+        return True
+    except Exception as e:
+        print(f'  Download error: {e}')
+        return False
 
 
 def mark_published(post_id):
@@ -161,13 +201,28 @@ def mark_published(post_id):
         pass
 
 
+def is_breaking_news(post):
+    pt = post.get('post_type', '')
+    return pt == 'breaking' or (pt == 'news' and post.get('score', 0) >= 8)
+
+
 def main():
     now_cet = datetime.now(CET)
     print(f'[{now_cet.strftime("%H:%M")} CET] Instagram Engine started...')
 
     if not os.path.exists(SHARED_VIDEO_PATH):
-        print(f'No shared video found at {SHARED_VIDEO_PATH}. TikTok must run first.')
-        return
+        print(f'No shared video found at {SHARED_VIDEO_PATH}.')
+        # try to find one from Supabase
+        posts_tmp = get_unpublished_posts()
+        if posts_tmp:
+            vu = posts_tmp[0].get('video_url')
+            if vu:
+                print(f'  Downloading video from Supabase...')
+                if download_video(vu, SHARED_VIDEO_PATH):
+                    print(f'  Downloaded to {SHARED_VIDEO_PATH}')
+        if not os.path.exists(SHARED_VIDEO_PATH):
+            print('No video available.')
+            return
 
     posts = get_unpublished_posts()
     if not posts:
@@ -175,6 +230,12 @@ def main():
         return
 
     post = posts[0]
+    if is_breaking_news(post):
+        print('  Breaking news — skipping Reel (TG only)')
+        mark_published(post['id'])
+        print('  Marked IG published (skip)')
+        return
+
     caption = post.get('instagram_caption') or post.get('title', '')
     print(f'Post: {post["title"][:50]}')
 

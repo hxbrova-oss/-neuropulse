@@ -22,16 +22,8 @@ def call_mistral(prompt, retries=3):
         try:
             res = requests.post(
                 'https://api.mistral.ai/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {MISTRAL_API_KEY}',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': MISTRAL_MODEL,
-                    'messages': [{'role': 'user', 'content': prompt}],
-                    'temperature': 0.9,
-                    'max_tokens': 1024
-                },
+                headers={'Authorization': f'Bearer {MISTRAL_API_KEY}', 'Content-Type': 'application/json'},
+                json={'model': MISTRAL_MODEL, 'messages': [{'role': 'user', 'content': prompt}], 'temperature': 0.9, 'max_tokens': 1024},
                 timeout=60
             )
             if res.status_code == 429:
@@ -68,29 +60,42 @@ def get_last_published():
 
 
 def generate_variations(post):
-    prompt = f'''You are a conversion copywriter. Generate 2 hook variations for this post.
+    hooks_raw = post.get('hook_variations', '')
+    if isinstance(hooks_raw, str):
+        try:
+            hooks = json.loads(hooks_raw) if hooks_raw.startswith('[') else []
+        except Exception:
+            hooks = []
+    else:
+        hooks = hooks_raw
 
-Title: {post.get("title", "")}
-Telegram post first 200 chars: {post.get("telegram_post", "")[:200]}
+    prompt = f'''You are Alex, a Berlin-based AI engineer with strong opinions.
+
+Title: {post.get('title', '')}
+
+Generate 3 hook variations in Alex's voice — direct, opinionated, no hype.
 
 Requirements:
-- Variation A: curiosity-based hook (tease, question, incomplete info)
-- Variation B: data/shock-based hook (stat, bold claim, urgent)
+- Variation A: curiosity — tease something the reader is missing
+- Variation B: contrarian — challenge a common belief
+- Variation C: data/shock — a surprising number or bold claim
 
 Reply JSON only:
 {{
-  "variation_a": "curiosity hook line",
-  "variation_b": "data/shock hook line"
+  "variation_a": "curiosity hook in Alex's voice",
+  "variation_b": "contrarian hook in Alex's voice",
+  "variation_c": "data/shock hook in Alex's voice"
 }}'''
     return call_mistral(prompt)
 
 
-def save_ab_test(post_id, var_a, var_b):
+def save_ab_test(post_id, var_a, var_b, var_c):
     try:
         payload = {
             'post_id': post_id,
             'variation_a': var_a,
             'variation_b': var_b,
+            'variation_c': var_c,
             'winner': '',
             'engagement_a': 0,
             'engagement_b': 0
@@ -101,7 +106,7 @@ def save_ab_test(post_id, var_a, var_b):
             json=payload, timeout=15
         )
         res.raise_for_status()
-        print(f'  AB test saved for post {post_id}')
+        print(f'  AB test (3 hooks) saved for post {post_id}')
         return True
     except Exception as e:
         print(f'  Error saving AB test: {e}')
@@ -110,10 +115,7 @@ def save_ab_test(post_id, var_a, var_b):
 
 def count_tests():
     try:
-        res = requests.get(
-            f'{SUPABASE_URL}/rest/v1/ab_tests?select=count',
-            headers=HDR, timeout=15
-        )
+        res = requests.get(f'{SUPABASE_URL}/rest/v1/ab_tests?select=count', headers=HDR, timeout=15)
         res.raise_for_status()
         return len(res.json())
     except Exception:
@@ -122,17 +124,17 @@ def count_tests():
 
 def get_winning_style():
     try:
-        res = requests.get(
-            f'{SUPABASE_URL}/rest/v1/ab_tests?select=winner&winner=neq.',
-            headers=HDR, timeout=15
-        )
+        res = requests.get(f'{SUPABASE_URL}/rest/v1/ab_tests?select=winner&winner=neq.', headers=HDR, timeout=15)
         res.raise_for_status()
         rows = res.json()
         if not rows:
             return None
-        wins_a = sum(1 for r in rows if r.get('winner') == 'A')
-        wins_b = sum(1 for r in rows if r.get('winner') == 'B')
-        return 'curiosity' if wins_a >= wins_b else 'data_shock'
+        wins = {'A': 0, 'B': 0, 'C': 0}
+        for r in rows:
+            w = r.get('winner', '')
+            if w in wins:
+                wins[w] += 1
+        return max(wins, key=wins.get)
     except Exception:
         return None
 
@@ -162,16 +164,22 @@ def main():
         print('Failed to generate variations.')
         return
 
-    save_ab_test(post_id, variants['variation_a'], variants['variation_b'])
+    save_ab_test(
+        post_id,
+        variants.get('variation_a', ''),
+        variants.get('variation_b', ''),
+        variants.get('variation_c', '')
+    )
 
     total = count_tests()
     print(f'Total AB tests stored: {total}')
 
-    if total >= 20:
+    if total >= 50:
         style = get_winning_style()
         if style:
-            print(f'20+ tests done. Winning hook style: {style}')
-            print(f'  (Update production_engine.py prompt manually to favor {style} hooks)')
+            label = {'A': 'curiosity', 'B': 'contrarian', 'C': 'data/shock'}
+            print(f'50+ tests done. Winning hook type: {label.get(style, style)}')
+            print(f'  Alex persona will favor {label.get(style, style)} hooks going forward')
 
     print('AB Tester done.')
 
